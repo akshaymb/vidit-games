@@ -142,13 +142,14 @@
     // Dragon
     const dragon = {
         x: 0,
-        y: 60,
+        y: 0,
         width: 80,
         height: 70,
         frame: 0,
         frameTimer: 0,
         breathing: false,
-        breathTimer: 0
+        breathTimer: 0,
+        floatOffset: 0
     };
 
     // Fireballs
@@ -169,7 +170,8 @@
         dino.y = groundY() - dino.height;
         dino.vy = 0;
         dino.jumping = false;
-        dragon.x = canvas.width - 120;
+        dragon.x = canvas.width - 130;
+        dragon.y = groundY() - 200;
         dragon.breathing = false;
         updateUI();
     }
@@ -256,7 +258,7 @@
 
     function drawDragon() {
         const x = dragon.x;
-        const y = dragon.y;
+        const y = dragon.y + dragon.floatOffset;
 
         // Wings
         dragon.frameTimer++;
@@ -409,13 +411,13 @@
             dragon.breathing = true;
             dragon.breathTimer = 20;
 
-            // Random height variation
-            const yPos = groundY() - 20 - Math.random() * 30;
+            // Random height variation — fire angles down from dragon to ground level
             fireballs.push({
                 x: dragon.x,
-                y: yPos,
+                y: dragon.y + dragon.floatOffset + 32,
                 radius: 12 + Math.random() * 6,
-                speed: fireSpeed + Math.random() * 1.5
+                speed: fireSpeed + Math.random() * 1.5,
+                vy: 2 + Math.random() * 1.5
             });
 
             // Increase difficulty
@@ -487,12 +489,21 @@
             if (dragon.breathTimer <= 0) dragon.breathing = false;
         }
 
+        // Dragon float/hover
+        dragon.floatOffset = Math.sin(Date.now() / 400) * 8;
+
         // Spawn fire
         spawnFire();
 
         // Move fireballs
         for (let i = fireballs.length - 1; i >= 0; i--) {
             fireballs[i].x -= fireballs[i].speed;
+            fireballs[i].y += (fireballs[i].vy || 0);
+            // Cap at ground level
+            if (fireballs[i].y > groundY() - 15) {
+                fireballs[i].y = groundY() - 15;
+                fireballs[i].vy = 0;
+            }
             if (fireballs[i].x < -20) {
                 fireballs.splice(i, 1);
                 score += 10;
