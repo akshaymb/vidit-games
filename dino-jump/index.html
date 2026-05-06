@@ -148,8 +148,7 @@
         frame: 0,
         frameTimer: 0,
         breathing: false,
-        breathTimer: 0,
-        floatOffset: 0
+        breathTimer: 0
     };
 
     // Fireballs
@@ -171,7 +170,7 @@
         dino.vy = 0;
         dino.jumping = false;
         dragon.x = canvas.width - 130;
-        dragon.y = groundY() - 200;
+        dragon.y = groundY() - dino.height - 10;
         dragon.breathing = false;
         updateUI();
     }
@@ -258,7 +257,7 @@
 
     function drawDragon() {
         const x = dragon.x;
-        const y = dragon.y + dragon.floatOffset;
+        const y = dragon.y;
 
         // Wings
         dragon.frameTimer++;
@@ -411,13 +410,13 @@
             dragon.breathing = true;
             dragon.breathTimer = 20;
 
-            // Random height variation — fire angles down from dragon to ground level
+            // Fire shoots straight at dino ground level
             fireballs.push({
                 x: dragon.x,
-                y: dragon.y + dragon.floatOffset + 32,
+                y: groundY() - 30,
                 radius: 12 + Math.random() * 6,
                 speed: fireSpeed + Math.random() * 1.5,
-                vy: 2 + Math.random() * 1.5
+                vy: 0
             });
 
             // Increase difficulty
@@ -488,9 +487,6 @@
             dragon.breathTimer--;
             if (dragon.breathTimer <= 0) dragon.breathing = false;
         }
-
-        // Dragon float/hover
-        dragon.floatOffset = Math.sin(Date.now() / 400) * 8;
 
         // Spawn fire
         spawnFire();
