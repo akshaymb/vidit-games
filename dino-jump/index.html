@@ -198,26 +198,41 @@
         const flash = invincible > 0 && Math.floor(invincible / 5) % 2 === 0;
         if (flash) { ctx.globalAlpha = 0.4; }
 
-        // Body
+        // Body (bigger, rounder)
         ctx.fillStyle = '#4ecdc4';
         ctx.beginPath();
-        ctx.ellipse(x + 25, y + 35, 20, 25, 0, 0, Math.PI * 2);
+        ctx.ellipse(x + 25, y + 35, 18, 22, 0, 0, Math.PI * 2);
         ctx.fill();
 
-        // Head
+        // Neck
         ctx.fillStyle = '#4ecdc4';
         ctx.beginPath();
-        ctx.ellipse(x + 20, y + 10, 14, 12, -0.2, 0, Math.PI * 2);
+        ctx.moveTo(x + 15, y + 20);
+        ctx.quadraticCurveTo(x + 10, y + 5, x + 8, y - 5);
+        ctx.lineTo(x + 18, y - 5);
+        ctx.quadraticCurveTo(x + 20, y + 5, x + 25, y + 18);
+        ctx.fill();
+
+        // Head (at top of neck, facing LEFT toward the fire)
+        ctx.fillStyle = '#3db8a9';
+        ctx.beginPath();
+        ctx.ellipse(x + 8, y - 10, 12, 10, -0.3, 0, Math.PI * 2);
+        ctx.fill();
+
+        // Snout
+        ctx.fillStyle = '#3db8a9';
+        ctx.beginPath();
+        ctx.ellipse(x - 2, y - 8, 7, 5, 0, 0, Math.PI * 2);
         ctx.fill();
 
         // Eye
         ctx.fillStyle = 'white';
         ctx.beginPath();
-        ctx.arc(x + 15, y + 8, 5, 0, Math.PI * 2);
+        ctx.arc(x + 5, y - 13, 4, 0, Math.PI * 2);
         ctx.fill();
         ctx.fillStyle = '#1a1a2e';
         ctx.beginPath();
-        ctx.arc(x + 14, y + 8, 2.5, 0, Math.PI * 2);
+        ctx.arc(x + 4, y - 13, 2, 0, Math.PI * 2);
         ctx.fill();
 
         // Legs
@@ -226,31 +241,34 @@
             dino.frameTimer++;
             if (dino.frameTimer > 8) { dino.frame = (dino.frame + 1) % 2; dino.frameTimer = 0; }
             const legOffset = dino.frame === 0 ? 0 : 4;
-            ctx.fillRect(x + 15, y + 52, 6, 12 - legOffset);
-            ctx.fillRect(x + 30, y + 52, 6, 8 + legOffset);
+            ctx.fillRect(x + 14, y + 52, 7, 12 - legOffset);
+            ctx.fillRect(x + 28, y + 52, 7, 8 + legOffset);
         } else {
-            // Tucked legs
-            ctx.fillRect(x + 18, y + 50, 6, 8);
-            ctx.fillRect(x + 28, y + 50, 6, 8);
+            ctx.fillRect(x + 16, y + 50, 7, 8);
+            ctx.fillRect(x + 28, y + 50, 7, 8);
         }
 
-        // Tail
+        // Tail (extends BACK/RIGHT, away from head)
         ctx.strokeStyle = '#3db8a9';
-        ctx.lineWidth = 4;
+        ctx.lineWidth = 6;
+        ctx.lineCap = 'round';
         ctx.beginPath();
-        ctx.moveTo(x + 42, y + 35);
-        ctx.quadraticCurveTo(x + 55, y + 30, x + 50, y + 45);
+        ctx.moveTo(x + 40, y + 35);
+        ctx.quadraticCurveTo(x + 58, y + 28, x + 65, y + 35);
+        ctx.quadraticCurveTo(x + 70, y + 42, x + 62, y + 45);
         ctx.stroke();
+        ctx.lineCap = 'butt';
 
-        // Spikes
+        // Back spikes (along spine)
         ctx.fillStyle = '#ff6b6b';
-        for (let i = 0; i < 3; i++) {
+        const spikes = [{x: x+18, y: y+2}, {x: x+24, y: y+12}, {x: x+30, y: y+20}];
+        spikes.forEach(s => {
             ctx.beginPath();
-            ctx.moveTo(x + 25 + i * 7, y + 12 + i * 6);
-            ctx.lineTo(x + 28 + i * 7, y + 5 + i * 5);
-            ctx.lineTo(x + 31 + i * 7, y + 12 + i * 6);
+            ctx.moveTo(s.x - 3, s.y + 4);
+            ctx.lineTo(s.x, s.y - 4);
+            ctx.lineTo(s.x + 3, s.y + 4);
             ctx.fill();
-        }
+        });
 
         ctx.globalAlpha = 1;
     }
