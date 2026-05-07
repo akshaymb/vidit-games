@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
-    <title>Dino Jump! 🦕🔥</title>
+    <title>Dino Jump! 🦕❄️</title>
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; }
         body {
@@ -88,8 +88,8 @@
         <span id="score">Score: 0</span>
     </div>
     <div id="start-screen">
-        <h1>🦕 Dino Jump! 🔥</h1>
-        <p>A dragon is shooting fire!<br>Tap or press Space to jump!</p>
+        <h1>🦕 Dino Jump! ❄️</h1>
+        <p>A dragon is shooting ice!<br>Tap or press Space to jump!</p>
         <button id="start-btn">START</button>
     </div>
     <div id="game-over">
@@ -323,9 +323,9 @@
         ctx.lineTo(x + 25, y + 14);
         ctx.fill();
 
-        // Mouth (open when breathing)
+        // Mouth (open when breathing ice)
         if (dragon.breathing) {
-            ctx.fillStyle = '#f39c12';
+            ctx.fillStyle = '#00bfff';
             ctx.beginPath();
             ctx.moveTo(x + 2, y + 28);
             ctx.lineTo(x - 5, y + 32);
@@ -350,28 +350,39 @@
     }
 
     function drawFireball(fb) {
-        // Glow
+        // Icy glow
         const gradient = ctx.createRadialGradient(fb.x, fb.y, 0, fb.x, fb.y, fb.radius * 2);
-        gradient.addColorStop(0, 'rgba(255, 200, 0, 0.6)');
-        gradient.addColorStop(1, 'rgba(255, 80, 0, 0)');
+        gradient.addColorStop(0, 'rgba(180, 230, 255, 0.6)');
+        gradient.addColorStop(1, 'rgba(100, 200, 255, 0)');
         ctx.fillStyle = gradient;
         ctx.beginPath();
         ctx.arc(fb.x, fb.y, fb.radius * 2, 0, Math.PI * 2);
         ctx.fill();
 
-        // Core
-        ctx.fillStyle = '#ff6600';
+        // Ice core
+        ctx.fillStyle = '#00bfff';
         ctx.beginPath();
         ctx.arc(fb.x, fb.y, fb.radius, 0, Math.PI * 2);
         ctx.fill();
 
-        // Inner
-        ctx.fillStyle = '#ffcc00';
+        // Inner sparkle
+        ctx.fillStyle = '#e0f7ff';
         ctx.beginPath();
         ctx.arc(fb.x - 2, fb.y - 2, fb.radius * 0.5, 0, Math.PI * 2);
         ctx.fill();
 
-        // Trail particles
+        // Ice crystal spikes
+        ctx.strokeStyle = '#b4e6ff';
+        ctx.lineWidth = 2;
+        for (let i = 0; i < 4; i++) {
+            const angle = (i / 4) * Math.PI * 2 + Date.now() / 500;
+            ctx.beginPath();
+            ctx.moveTo(fb.x, fb.y);
+            ctx.lineTo(fb.x + Math.cos(angle) * fb.radius * 1.5, fb.y + Math.sin(angle) * fb.radius * 1.5);
+            ctx.stroke();
+        }
+
+        // Trail particles (icy)
         for (let i = 0; i < 2; i++) {
             particles.push({
                 x: fb.x + fb.radius + Math.random() * 10,
@@ -379,7 +390,7 @@
                 vx: Math.random() * 2,
                 vy: (Math.random() - 0.5) * 2,
                 life: 15,
-                color: Math.random() > 0.5 ? '#ff6600' : '#ffcc00',
+                color: Math.random() > 0.5 ? '#00bfff' : '#e0f7ff',
                 size: Math.random() * 4 + 2
             });
         }
@@ -408,7 +419,7 @@
                 vx: (Math.random() - 0.5) * 8,
                 vy: (Math.random() - 0.5) * 8,
                 life: 20 + Math.random() * 10,
-                color: ['#ff6600', '#ffcc00', '#ff0000', '#ff3300'][Math.floor(Math.random() * 4)],
+                color: ['#00bfff', '#b4e6ff', '#e0f7ff', '#7fdbff'][Math.floor(Math.random() * 4)],
                 size: Math.random() * 6 + 3
             });
         }
