@@ -192,7 +192,15 @@
     // Projectiles
     let fireballs = []; // dragon ice
     let arrows = [];    // dino arrows
+    let powerups = [];  // dragon power-up drops
     let particles = [];
+
+    // Power-up state
+    let shieldActive = 0; // frames remaining
+    let multiArrow = false;
+    let multiArrowTimer = 0;
+    const SHIELD_DURATION = 600; // ~10 seconds at 60fps
+    const MULTI_DURATION = 480; // ~8 seconds
 
     function resetGame() {
         lives = 5;
@@ -203,10 +211,14 @@
         lastFireTime = Date.now();
         fireballs = [];
         arrows = [];
+        powerups = [];
         particles = [];
         level = 1;
         dragonHP = 10;
         dragonMaxHP = 10;
+        shieldActive = 0;
+        multiArrow = false;
+        multiArrowTimer = 0;
         dino.y = groundY() - dino.height;
         dino.vy = 0;
         dino.jumping = false;
@@ -516,11 +528,76 @@
 
     function shootArrow() {
         if (!gameRunning) return;
-        arrows.push({
-            x: dino.x + 50,
-            y: dino.y + 20,
-            speed: 8
+        if (multiArrow) {
+            // Shoot 3 arrows in a spread
+            arrows.push({ x: dino.x + 50, y: dino.y + 15, speed: 9 });
+            arrows.push({ x: dino.x + 50, y: dino.y + 25, speed: 9 });
+            arrows.push({ x: dino.x + 50, y: dino.y + 35, speed: 9 });
+        } else {
+            arrows.push({ x: dino.x + 50, y: dino.y + 20, speed: 8 });
+        }
+    }
+
+    function drawPowerup(p) {
+        // Glowing orb
+        const colors = { shield: '#00bfff', life: '#ff6b6b', multi: '#f1c40f' };
+        const emojis = { shield: '🛡️', life: '❤️', multi: '⚡' };
+        const glow = ctx.createRadialGradient(p.x, p.y, 0, p.x, p.y, p.radius * 2);
+        glow.addColorStop(0, colors[p.type] + '99');
+        glow.addColorStop(1, 'transparent');
+        ctx.fillStyle = glow;
+        ctx.beginPath();
+        ctx.arc(p.x, p.y, p.radius * 2, 0, Math.PI * 2);
+        ctx.fill();
+
+        // Orb
+        ctx.fillStyle = colors[p.type];
+        ctx.beginPath();
+        ctx.arc(p.x, p.y, p.radius, 0, Math.PI * 2);
+        ctx.fill();
+
+        // Emoji
+        ctx.font = '16px sans-serif';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillText(emojis[p.type], p.x, p.y);
+        ctx.textAlign = 'start';
+        ctx.textBaseline = 'alphabetic';
+
+        // Sparkle trail
+        particles.push({
+            x: p.x + p.radius + Math.random() * 5,
+            y: p.y + (Math.random() - 0.5) * 8,
+            vx: Math.random() * 1.5,
+            vy: (Math.random() - 0.5) * 1.5,
+            life: 12,
+            color: colors[p.type],
+            size: Math.random() * 3 + 2
         });
+    }
+
+    function collectPowerup(p) {
+        if (p.type === 'shield') {
+            shieldActive = SHIELD_DURATION;
+            spawnExplosion(dino.x + 25, dino.y + 30, ['#00bfff', '#7fdbff', '#e0f7ff', '#fff']);
+        } else if (p.type === 'life') {
+            if (lives < 5) lives++;
+            spawnExplosion(dino.x + 25, dino.y + 30, ['#ff6b6b', '#ff0000', '#ff9999', '#fff']);
+        } else if (p.type === 'multi') {
+            multiArrow = true;
+            multiArrowTimer = MULTI_DURATION;
+            spawnExplosion(dino.x + 25, dino.y + 30, ['#f1c40f', '#f39c12', '#ffcc00', '#fff']);
+        }
+        updateUI();
+    }
+
+    function checkPowerupCollision(p) {
+        const dinoBox = { x: dino.x + 5, y: dino.y, w: dino.width, h: dino.height };
+        const dist = Math.sqrt(
+            Math.pow(p.x - (dinoBox.x + dinoBox.w / 2), 2) +
+            Math.pow(p.y - (dinoBox.y + dinoBox.h / 2), 2)
+        );
+        return dist < p.radius + 25;
     }
 
     function spawnIce() {
@@ -530,12 +607,25 @@
             dragon.breathing = true;
             dragon.breathTimer = 20;
 
-            fireballs.push({
-                x: dragon.x,
-                y: groundY() - 30,
-                radius: 12 + Math.random() * 6,
-                speed: fireSpeed + Math.random() * 1.5
-            });
+            // 20% chance to shoot a power-up instead of ice
+            if (Math.random() < 0.2) {
+                const types = ['shield', 'life', 'multi'];
+                const type = types[Math.floor(Math.random() * types.length)];
+                powerups.push({
+                    x: dragon.x,
+                    y: groundY() - 30,
+                    speed: fireSpeed * 0.7,
+                    type: type,
+                    radius: 16
+                });
+            } else {
+                fireballs.push({
+                    x: dragon.x,
+                    y: groundY() - 30,
+                    radius: 12 + Math.random() * 6,
+                    speed: fireSpeed + Math.random() * 1.5
+                });
+            }
 
             if (fireInterval > 800) fireInterval -= 15;
             if (fireSpeed < 7) fireSpeed += 0.03;
@@ -543,7 +633,7 @@
     }
 
     function checkDinoCollision(fb) {
-        if (invincible > 0) return false;
+        if (invincible > 0 || shieldActive > 0) return false;
         const dinoBox = { x: dino.x + 10, y: dino.y + 5, w: dino.width - 20, h: dino.height - 10 };
         const dist = Math.sqrt(
             Math.pow(fb.x - (dinoBox.x + dinoBox.w / 2), 2) +
@@ -641,8 +731,35 @@
             }
             if (checkDinoCollision(fireballs[i])) {
                 fireballs.splice(i, 1);
-                hit();
+                if (shieldActive > 0) {
+                    // Shield absorbs hit
+                    spawnExplosion(dino.x + 25, dino.y + 30, ['#00bfff', '#fff']);
+                } else {
+                    hit();
+                }
             }
+        }
+
+        // Move power-ups
+        for (let i = powerups.length - 1; i >= 0; i--) {
+            powerups[i].x -= powerups[i].speed;
+            if (powerups[i].x < -20) {
+                powerups.splice(i, 1);
+                continue;
+            }
+            if (checkPowerupCollision(powerups[i])) {
+                collectPowerup(powerups[i]);
+                powerups.splice(i, 1);
+            }
+        }
+
+        // Shield timer
+        if (shieldActive > 0) shieldActive--;
+
+        // Multi-arrow timer
+        if (multiArrowTimer > 0) {
+            multiArrowTimer--;
+            if (multiArrowTimer <= 0) multiArrow = false;
         }
 
         // Move arrows
@@ -664,9 +781,32 @@
         // Draw
         drawDragon();
         fireballs.forEach(drawIceball);
+        powerups.forEach(drawPowerup);
         arrows.forEach(drawArrow);
         drawParticles();
         drawDino();
+
+        // Shield visual around dino
+        if (shieldActive > 0) {
+            ctx.strokeStyle = 'rgba(0, 191, 255, ' + (0.4 + Math.sin(Date.now()/200)*0.2) + ')';
+            ctx.lineWidth = 3;
+            ctx.beginPath();
+            ctx.ellipse(dino.x + 25, dino.y + 30, 35, 38, 0, 0, Math.PI * 2);
+            ctx.stroke();
+        }
+
+        // Active power-up indicators
+        let indicatorY = 55;
+        ctx.font = '14px Comic Sans MS';
+        if (shieldActive > 0) {
+            ctx.fillStyle = '#00bfff';
+            ctx.fillText('🛡️ ' + Math.ceil(shieldActive/60) + 's', 15, indicatorY);
+            indicatorY += 20;
+        }
+        if (multiArrow) {
+            ctx.fillStyle = '#f1c40f';
+            ctx.fillText('⚡ ' + Math.ceil(multiArrowTimer/60) + 's', 15, indicatorY);
+        }
 
         animFrame = requestAnimationFrame(update);
     }
