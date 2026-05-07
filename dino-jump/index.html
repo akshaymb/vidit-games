@@ -80,6 +80,38 @@
             0%, 100% { transform: scale(1); }
             50% { transform: scale(1.05); }
         }
+        #controls {
+            position: absolute;
+            bottom: 30px;
+            left: 0;
+            right: 0;
+            display: flex;
+            justify-content: space-between;
+            padding: 0 40px;
+            z-index: 15;
+            pointer-events: none;
+        }
+        .ctrl-btn {
+            pointer-events: all;
+            font-size: 2.2em;
+            width: 90px;
+            height: 90px;
+            border: none;
+            border-radius: 50%;
+            color: white;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            touch-action: manipulation;
+            cursor: pointer;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.3);
+            user-select: none;
+            -webkit-user-select: none;
+            transition: transform 0.1s;
+        }
+        .ctrl-btn:active { transform: scale(0.85); }
+        #btn-arrow { background: #e74c3c; }
+        #btn-jump { background: #4ecdc4; }
     </style>
 </head>
 <body>
@@ -88,8 +120,8 @@
         <span id="score">Score: 0</span>
     </div>
     <div id="start-screen">
-        <h1>🦕 Dino Jump! ❄️</h1>
-        <p>A dragon is shooting ice!<br>Tap or press Space to jump!</p>
+        <h1>🦕 Dino vs Dragon! ❄️</h1>
+        <p>Dragon shoots ice! Dino fights back!<br>🏹 = Shoot Arrow &nbsp; ⬆️ = Jump</p>
         <button id="start-btn">START</button>
     </div>
     <div id="game-over">
@@ -97,13 +129,16 @@
         <p id="final-score">Score: 0</p>
         <button id="restart-btn">Play Again 🎮</button>
     </div>
+    <div id="controls">
+        <button class="ctrl-btn" id="btn-arrow">🏹</button>
+        <button class="ctrl-btn" id="btn-jump">⬆️</button>
+    </div>
     <canvas id="game"></canvas>
 
     <script>
     const canvas = document.getElementById('game');
     const ctx = canvas.getContext('2d');
 
-    // Responsive canvas
     function resize() {
         canvas.width = window.innerWidth;
         canvas.height = window.innerHeight;
@@ -120,9 +155,12 @@
     let fireInterval = 2000;
     let lastFireTime = 0;
     let animFrame;
+    let dragonHP = 10;
+    let dragonMaxHP = 10;
+    let dragonHitFlash = 0;
+    let level = 1;
 
-    // Ground
-    const GROUND_OFFSET = 80;
+    const GROUND_OFFSET = 120; // more room for buttons
     function groundY() { return canvas.height - GROUND_OFFSET; }
 
     // Dino
@@ -151,10 +189,9 @@
         breathTimer: 0
     };
 
-    // Fireballs
-    let fireballs = [];
-
-    // Particles
+    // Projectiles
+    let fireballs = []; // dragon ice
+    let arrows = [];    // dino arrows
     let particles = [];
 
     function resetGame() {
@@ -165,13 +202,18 @@
         fireInterval = 2000;
         lastFireTime = Date.now();
         fireballs = [];
+        arrows = [];
         particles = [];
+        level = 1;
+        dragonHP = 10;
+        dragonMaxHP = 10;
         dino.y = groundY() - dino.height;
         dino.vy = 0;
         dino.jumping = false;
         dragon.x = canvas.width - 130;
         dragon.y = groundY() - dino.height - 10;
         dragon.breathing = false;
+        dragonHitFlash = 0;
         updateUI();
     }
 
@@ -180,12 +222,11 @@
         document.getElementById('score').textContent = 'Score: ' + score;
     }
 
-    // Drawing functions
+    // Drawing
     function drawGround() {
         const gy = groundY();
         ctx.fillStyle = '#2d6a4f';
         ctx.fillRect(0, gy, canvas.width, canvas.height - gy);
-        // Grass blades
         ctx.fillStyle = '#40916c';
         for (let i = 0; i < canvas.width; i += 15) {
             ctx.fillRect(i, gy - 3, 3, 6);
@@ -196,9 +237,9 @@
         const x = dino.x;
         const y = dino.y;
         const flash = invincible > 0 && Math.floor(invincible / 5) % 2 === 0;
-        if (flash) { ctx.globalAlpha = 0.4; }
+        if (flash) ctx.globalAlpha = 0.4;
 
-        // Body (bigger, rounder)
+        // Body
         ctx.fillStyle = '#4ecdc4';
         ctx.beginPath();
         ctx.ellipse(x + 25, y + 35, 18, 22, 0, 0, Math.PI * 2);
@@ -213,26 +254,26 @@
         ctx.quadraticCurveTo(x + 20, y + 5, x + 25, y + 18);
         ctx.fill();
 
-        // Head (at top of neck, facing LEFT toward the fire)
+        // Head (facing RIGHT toward dragon)
         ctx.fillStyle = '#3db8a9';
         ctx.beginPath();
-        ctx.ellipse(x + 8, y - 10, 12, 10, -0.3, 0, Math.PI * 2);
+        ctx.ellipse(x + 35, y - 5, 12, 10, 0.3, 0, Math.PI * 2);
         ctx.fill();
 
         // Snout
         ctx.fillStyle = '#3db8a9';
         ctx.beginPath();
-        ctx.ellipse(x - 2, y - 8, 7, 5, 0, 0, Math.PI * 2);
+        ctx.ellipse(x + 46, y - 3, 7, 5, 0, 0, Math.PI * 2);
         ctx.fill();
 
         // Eye
         ctx.fillStyle = 'white';
         ctx.beginPath();
-        ctx.arc(x + 5, y - 13, 4, 0, Math.PI * 2);
+        ctx.arc(x + 38, y - 9, 4, 0, Math.PI * 2);
         ctx.fill();
         ctx.fillStyle = '#1a1a2e';
         ctx.beginPath();
-        ctx.arc(x + 4, y - 13, 2, 0, Math.PI * 2);
+        ctx.arc(x + 39, y - 9, 2, 0, Math.PI * 2);
         ctx.fill();
 
         // Legs
@@ -248,20 +289,20 @@
             ctx.fillRect(x + 28, y + 50, 7, 8);
         }
 
-        // Tail (extends BACK/RIGHT, away from head)
+        // Tail (extends LEFT, behind dino)
         ctx.strokeStyle = '#3db8a9';
         ctx.lineWidth = 6;
         ctx.lineCap = 'round';
         ctx.beginPath();
-        ctx.moveTo(x + 40, y + 35);
-        ctx.quadraticCurveTo(x + 58, y + 28, x + 65, y + 35);
-        ctx.quadraticCurveTo(x + 70, y + 42, x + 62, y + 45);
+        ctx.moveTo(x + 8, y + 35);
+        ctx.quadraticCurveTo(x - 10, y + 28, x - 15, y + 38);
+        ctx.quadraticCurveTo(x - 18, y + 45, x - 10, y + 42);
         ctx.stroke();
         ctx.lineCap = 'butt';
 
-        // Back spikes (along spine)
+        // Back spikes
         ctx.fillStyle = '#ff6b6b';
-        const spikes = [{x: x+18, y: y+2}, {x: x+24, y: y+12}, {x: x+30, y: y+20}];
+        const spikes = [{x: x+22, y: y+5}, {x: x+27, y: y+14}, {x: x+30, y: y+22}];
         spikes.forEach(s => {
             ctx.beginPath();
             ctx.moveTo(s.x - 3, s.y + 4);
@@ -276,6 +317,8 @@
     function drawDragon() {
         const x = dragon.x;
         const y = dragon.y;
+
+        if (dragonHitFlash > 0) ctx.globalAlpha = 0.5;
 
         // Wings
         dragon.frameTimer++;
@@ -323,7 +366,7 @@
         ctx.lineTo(x + 25, y + 14);
         ctx.fill();
 
-        // Mouth (open when breathing ice)
+        // Mouth (open when breathing)
         if (dragon.breathing) {
             ctx.fillStyle = '#00bfff';
             ctx.beginPath();
@@ -340,17 +383,29 @@
         ctx.moveTo(x + 60, y + 35);
         ctx.quadraticCurveTo(x + 80, y + 50, x + 75, y + 60);
         ctx.stroke();
-        // Tail spike
         ctx.fillStyle = '#f39c12';
         ctx.beginPath();
         ctx.moveTo(x + 72, y + 58);
         ctx.lineTo(x + 78, y + 65);
         ctx.lineTo(x + 70, y + 65);
         ctx.fill();
+
+        ctx.globalAlpha = 1;
+
+        // HP bar above dragon
+        const barWidth = 60;
+        const barX = x + 10;
+        const barY = y - 15;
+        ctx.fillStyle = '#333';
+        ctx.fillRect(barX, barY, barWidth, 8);
+        ctx.fillStyle = dragonHP > 3 ? '#2ecc71' : '#e74c3c';
+        ctx.fillRect(barX, barY, barWidth * (dragonHP / dragonMaxHP), 8);
+        ctx.strokeStyle = '#fff';
+        ctx.lineWidth = 1;
+        ctx.strokeRect(barX, barY, barWidth, 8);
     }
 
-    function drawFireball(fb) {
-        // Icy glow
+    function drawIceball(fb) {
         const gradient = ctx.createRadialGradient(fb.x, fb.y, 0, fb.x, fb.y, fb.radius * 2);
         gradient.addColorStop(0, 'rgba(180, 230, 255, 0.6)');
         gradient.addColorStop(1, 'rgba(100, 200, 255, 0)');
@@ -359,19 +414,16 @@
         ctx.arc(fb.x, fb.y, fb.radius * 2, 0, Math.PI * 2);
         ctx.fill();
 
-        // Ice core
         ctx.fillStyle = '#00bfff';
         ctx.beginPath();
         ctx.arc(fb.x, fb.y, fb.radius, 0, Math.PI * 2);
         ctx.fill();
 
-        // Inner sparkle
         ctx.fillStyle = '#e0f7ff';
         ctx.beginPath();
         ctx.arc(fb.x - 2, fb.y - 2, fb.radius * 0.5, 0, Math.PI * 2);
         ctx.fill();
 
-        // Ice crystal spikes
         ctx.strokeStyle = '#b4e6ff';
         ctx.lineWidth = 2;
         for (let i = 0; i < 4; i++) {
@@ -382,7 +434,6 @@
             ctx.stroke();
         }
 
-        // Trail particles (icy)
         for (let i = 0; i < 2; i++) {
             particles.push({
                 x: fb.x + fb.radius + Math.random() * 10,
@@ -394,6 +445,37 @@
                 size: Math.random() * 4 + 2
             });
         }
+    }
+
+    function drawArrow(a) {
+        // Arrow shaft
+        ctx.strokeStyle = '#f39c12';
+        ctx.lineWidth = 3;
+        ctx.beginPath();
+        ctx.moveTo(a.x, a.y);
+        ctx.lineTo(a.x - 25, a.y);
+        ctx.stroke();
+
+        // Arrow head
+        ctx.fillStyle = '#e74c3c';
+        ctx.beginPath();
+        ctx.moveTo(a.x, a.y);
+        ctx.lineTo(a.x - 8, a.y - 5);
+        ctx.lineTo(a.x - 8, a.y + 5);
+        ctx.fill();
+
+        // Feathers
+        ctx.fillStyle = '#f1c40f';
+        ctx.beginPath();
+        ctx.moveTo(a.x - 22, a.y);
+        ctx.lineTo(a.x - 28, a.y - 4);
+        ctx.lineTo(a.x - 25, a.y);
+        ctx.fill();
+        ctx.beginPath();
+        ctx.moveTo(a.x - 22, a.y);
+        ctx.lineTo(a.x - 28, a.y + 4);
+        ctx.lineTo(a.x - 25, a.y);
+        ctx.fill();
     }
 
     function drawParticles() {
@@ -412,14 +494,14 @@
         ctx.globalAlpha = 1;
     }
 
-    function spawnExplosion(x, y) {
+    function spawnExplosion(x, y, colors) {
         for (let i = 0; i < 15; i++) {
             particles.push({
                 x, y,
                 vx: (Math.random() - 0.5) * 8,
                 vy: (Math.random() - 0.5) * 8,
                 life: 20 + Math.random() * 10,
-                color: ['#00bfff', '#b4e6ff', '#e0f7ff', '#7fdbff'][Math.floor(Math.random() * 4)],
+                color: colors[Math.floor(Math.random() * colors.length)],
                 size: Math.random() * 6 + 3
             });
         }
@@ -432,36 +514,37 @@
         }
     }
 
-    function spawnFire() {
+    function shootArrow() {
+        if (!gameRunning) return;
+        arrows.push({
+            x: dino.x + 50,
+            y: dino.y + 20,
+            speed: 8
+        });
+    }
+
+    function spawnIce() {
         const now = Date.now();
         if (now - lastFireTime > fireInterval) {
             lastFireTime = now;
             dragon.breathing = true;
             dragon.breathTimer = 20;
 
-            // Fire shoots straight at dino ground level
             fireballs.push({
                 x: dragon.x,
                 y: groundY() - 30,
                 radius: 12 + Math.random() * 6,
-                speed: fireSpeed + Math.random() * 1.5,
-                vy: 0
+                speed: fireSpeed + Math.random() * 1.5
             });
 
-            // Increase difficulty
-            if (fireInterval > 800) fireInterval -= 20;
-            if (fireSpeed < 8) fireSpeed += 0.05;
+            if (fireInterval > 800) fireInterval -= 15;
+            if (fireSpeed < 7) fireSpeed += 0.03;
         }
     }
 
-    function checkCollision(fb) {
+    function checkDinoCollision(fb) {
         if (invincible > 0) return false;
-        const dinoBox = {
-            x: dino.x + 10,
-            y: dino.y + 5,
-            w: dino.width - 20,
-            h: dino.height - 10
-        };
+        const dinoBox = { x: dino.x + 10, y: dino.y + 5, w: dino.width - 20, h: dino.height - 10 };
         const dist = Math.sqrt(
             Math.pow(fb.x - (dinoBox.x + dinoBox.w / 2), 2) +
             Math.pow(fb.y - (dinoBox.y + dinoBox.h / 2), 2)
@@ -469,30 +552,51 @@
         return dist < fb.radius + 20;
     }
 
+    function checkArrowHitDragon(a) {
+        return a.x >= dragon.x && a.x <= dragon.x + dragon.width &&
+               a.y >= dragon.y && a.y <= dragon.y + dragon.height;
+    }
+
     function hit() {
         lives--;
-        invincible = 60; // frames of invincibility
-        spawnExplosion(dino.x + 25, dino.y + 30);
+        invincible = 60;
+        spawnExplosion(dino.x + 25, dino.y + 30, ['#00bfff', '#b4e6ff', '#e0f7ff', '#7fdbff']);
         updateUI();
-        if (lives <= 0) {
-            gameOver();
+        if (lives <= 0) gameOver();
+    }
+
+    function dragonHit() {
+        dragonHP--;
+        dragonHitFlash = 15;
+        score += 25;
+        spawnExplosion(dragon.x + 30, dragon.y + 30, ['#ff6600', '#ffcc00', '#ff3300', '#fff']);
+        updateUI();
+        if (dragonHP <= 0) {
+            // Dragon defeated! Level up!
+            level++;
+            dragonMaxHP = 10 + level * 3;
+            dragonHP = dragonMaxHP;
+            fireSpeed = Math.min(4 + level * 0.5, 9);
+            fireInterval = Math.max(2000 - level * 150, 600);
+            score += 100;
+            spawnExplosion(dragon.x + 40, dragon.y + 35, ['#f1c40f', '#e74c3c', '#ff6600', '#fff']);
+            updateUI();
         }
     }
 
     function gameOver() {
         gameRunning = false;
         document.getElementById('game-over').style.display = 'block';
-        document.getElementById('final-score').textContent = 'Score: ' + score;
+        document.getElementById('final-score').textContent = 'Score: ' + score + ' | Level: ' + level;
         cancelAnimationFrame(animFrame);
     }
 
     function update() {
         if (!gameRunning) return;
 
-        // Clear
         ctx.clearRect(0, 0, canvas.width, canvas.height);
 
-        // Background stars
+        // Stars
         ctx.fillStyle = 'rgba(255,255,255,0.3)';
         for (let i = 0; i < 30; i++) {
             const sx = (i * 97 + score * 0.1) % canvas.width;
@@ -501,6 +605,11 @@
         }
 
         drawGround();
+
+        // Level indicator
+        ctx.fillStyle = '#f1c40f';
+        ctx.font = 'bold 16px Comic Sans MS';
+        ctx.fillText('Level ' + level, canvas.width / 2 - 25, 30);
 
         // Dino physics
         dino.vy += dino.gravity;
@@ -516,61 +625,69 @@
             dragon.breathTimer--;
             if (dragon.breathTimer <= 0) dragon.breathing = false;
         }
+        if (dragonHitFlash > 0) dragonHitFlash--;
 
-        // Spawn fire
-        spawnFire();
+        // Spawn ice
+        spawnIce();
 
-        // Move fireballs
+        // Move ice
         for (let i = fireballs.length - 1; i >= 0; i--) {
             fireballs[i].x -= fireballs[i].speed;
-            fireballs[i].y += (fireballs[i].vy || 0);
-            // Cap at ground level
-            if (fireballs[i].y > groundY() - 15) {
-                fireballs[i].y = groundY() - 15;
-                fireballs[i].vy = 0;
-            }
             if (fireballs[i].x < -20) {
                 fireballs.splice(i, 1);
-                score += 10;
+                score += 5;
                 updateUI();
                 continue;
             }
-            if (checkCollision(fireballs[i])) {
+            if (checkDinoCollision(fireballs[i])) {
                 fireballs.splice(i, 1);
                 hit();
             }
         }
 
-        // Invincibility countdown
+        // Move arrows
+        for (let i = arrows.length - 1; i >= 0; i--) {
+            arrows[i].x += arrows[i].speed;
+            if (arrows[i].x > canvas.width + 30) {
+                arrows.splice(i, 1);
+                continue;
+            }
+            if (checkArrowHitDragon(arrows[i])) {
+                arrows.splice(i, 1);
+                dragonHit();
+            }
+        }
+
+        // Invincibility
         if (invincible > 0) invincible--;
 
-        // Draw everything
+        // Draw
         drawDragon();
-        fireballs.forEach(drawFireball);
+        fireballs.forEach(drawIceball);
+        arrows.forEach(drawArrow);
         drawParticles();
         drawDino();
-
-        // Score from survival
-        if (Date.now() % 500 < 17) {
-            score++;
-            updateUI();
-        }
 
         animFrame = requestAnimationFrame(update);
     }
 
-    // Controls
+    // Controls — keyboard
     document.addEventListener('keydown', (e) => {
         if (e.code === 'Space' || e.code === 'ArrowUp') {
             e.preventDefault();
             jump();
         }
+        if (e.code === 'KeyA' || e.code === 'ArrowRight') {
+            e.preventDefault();
+            shootArrow();
+        }
     });
-    document.addEventListener('touchstart', (e) => {
-        e.preventDefault();
-        jump();
-    });
-    canvas.addEventListener('click', jump);
+
+    // Controls — buttons
+    document.getElementById('btn-jump').addEventListener('touchstart', (e) => { e.preventDefault(); jump(); });
+    document.getElementById('btn-jump').addEventListener('click', (e) => { e.preventDefault(); jump(); });
+    document.getElementById('btn-arrow').addEventListener('touchstart', (e) => { e.preventDefault(); shootArrow(); });
+    document.getElementById('btn-arrow').addEventListener('click', (e) => { e.preventDefault(); shootArrow(); });
 
     // Start
     document.getElementById('start-btn').addEventListener('click', () => {
